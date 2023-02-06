@@ -22,7 +22,6 @@ extern crate alloc;
 mod alpha;
 mod appendix_g;
 pub(crate) mod input;
-mod matrix;
 mod mds;
 mod round_constants;
 mod rounds;

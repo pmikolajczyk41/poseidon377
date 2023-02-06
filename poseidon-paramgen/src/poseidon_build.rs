@@ -5,14 +5,10 @@ use ark_std::vec::Vec;
 use num::BigUint;
 use poseidon_parameters::{
     Alpha, Matrix, MatrixOperations, MdsMatrix, OptimizedMdsMatrices, PoseidonParameters,
+    SquareMatrix,
 };
 
-use crate::{
-    generate,
-    matrix::{MatrixWrapper, SquareMatrixWrapper},
-    round_constants::ArcMatrixWrapper,
-    OptimizedArcMatrixWrapper,
-};
+use crate::{generate, round_constants::ArcMatrixWrapper, OptimizedArcMatrixWrapper};
 
 /// Create parameter code.
 pub fn compile<F: PrimeField>(
@@ -89,16 +85,18 @@ impl Display for DisplayableAlpha {
     }
 }
 
-impl<F: PrimeField> Display for MatrixWrapper<F> {
+struct DisplayableMatrix<F: PrimeField>(Matrix<F>);
+impl<F: PrimeField> Display for DisplayableMatrix<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let n_rows = self.n_rows();
-        let n_cols = self.n_cols();
-        let elements = serialize_vec_f(self.elements().to_vec());
+        let n_rows = self.0.n_rows();
+        let n_cols = self.0.n_cols();
+        let elements = serialize_vec_f(self.0.elements().to_vec());
         write!(f, r"Matrix::new({n_rows}, {n_cols}, {elements})",)
     }
 }
 
-impl<F: PrimeField> Display for SquareMatrixWrapper<F> {
+struct DisplayableSquareMatrix<F: PrimeField>(SquareMatrix<F>);
+impl<F: PrimeField> Display for DisplayableSquareMatrix<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let n_rows = self.0.n_rows();
         let n_cols = self.0.n_cols();
@@ -110,8 +108,7 @@ impl<F: PrimeField> Display for SquareMatrixWrapper<F> {
 fn serialize_vec_matrix_f<F: PrimeField>(elements: Vec<Matrix<F>>) -> String {
     let mut new_str = "vec![".to_string();
     for elem in elements {
-        let elem: MatrixWrapper<F> = elem.into();
-        new_str.push_str(&format!("{}, ", elem).to_string());
+        new_str.push_str(&format!("{}, ", DisplayableMatrix(elem.clone())).to_string());
     }
     // Remove the trailing ", "
     new_str.pop();
@@ -167,16 +164,16 @@ impl<F: PrimeField> Display for DisplayableOptimizedMdsMatrices<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let this = self.0.clone();
 
-        let M_hat = SquareMatrixWrapper(this.M_hat);
-        let v: MatrixWrapper<F> = this.v.into();
-        let w: MatrixWrapper<F> = this.w.into();
-        let M_prime = SquareMatrixWrapper(this.M_prime);
-        let M_doubleprime = SquareMatrixWrapper(this.M_doubleprime);
-        let M_inverse = SquareMatrixWrapper(this.M_inverse);
-        let M_hat_inverse = SquareMatrixWrapper(this.M_hat_inverse);
-        let M_i: MatrixWrapper<F> = this.M_i.into();
-        let v_collection = this.v_collection.clone();
-        let w_hat_collection = this.w_hat_collection.clone();
+        let M_hat = &this.M_hat;
+        let v = &this.v;
+        let w = &this.w;
+        let M_prime = &this.M_prime;
+        let M_doubleprime = &this.M_doubleprime;
+        let M_inverse = &this.M_inverse;
+        let M_hat_inverse = &this.M_hat_inverse;
+        let M_i = &this.M_i;
+        let v_collection = &this.v_collection;
+        let w_hat_collection = &this.w_hat_collection;
 
         write!(
             f,
@@ -193,17 +190,17 @@ impl<F: PrimeField> Display for DisplayableOptimizedMdsMatrices<F> {
                 v_collection: {},
                 w_hat_collection: {},
             }}",
-            M_hat,
-            v,
-            w,
-            M_prime,
-            M_doubleprime,
-            M_inverse,
-            M_hat_inverse,
+            DisplayableSquareMatrix(M_hat.clone()),
+            DisplayableMatrix(v.clone()),
+            DisplayableMatrix(w.clone()),
+            DisplayableSquareMatrix(M_prime.clone()),
+            DisplayableSquareMatrix(M_doubleprime.clone()),
+            DisplayableSquareMatrix(M_inverse.clone()),
+            DisplayableSquareMatrix(M_hat_inverse.clone()),
             serialize_f(this.M_00),
-            M_i,
-            serialize_vec_matrix_f(v_collection),
-            serialize_vec_matrix_f(w_hat_collection),
+            DisplayableMatrix(M_i.clone()),
+            serialize_vec_matrix_f(v_collection.clone()),
+            serialize_vec_matrix_f(w_hat_collection.clone()),
         )
     }
 }
