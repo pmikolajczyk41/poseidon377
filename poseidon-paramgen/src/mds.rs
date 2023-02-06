@@ -307,9 +307,8 @@ mod tests {
     use ark_ff::{fields::FpParameters, One, Zero};
     use poseidon_parameters::Alpha;
 
-    use crate::{input::InputParametersWrapper, rounds::RoundNumbersWrapper};
-
     use super::*;
+    use crate::{input, rounds::RoundNumbersWrapper};
 
     #[test]
     fn convert_from_mds_to_vec_of_vecs() {
@@ -331,7 +330,7 @@ mod tests {
         let M = 128;
         let t = 3;
 
-        let input = InputParametersWrapper::new(M, 3, Fq381Parameters::MODULUS, true);
+        let input = input::generate(M, 3, Fq381Parameters::MODULUS, true);
         let MDS_matrix: MdsMatrix<Fq> = MdsMatrixWrapper::generate(&input);
 
         assert!(MDS_matrix.0.determinant() != Fq::zero());
@@ -343,7 +342,7 @@ mod tests {
     fn check_calc_equivalent_matrices_vs_sage() {
         let M = 128;
 
-        let input = InputParametersWrapper::new(M, 3, Fq377Parameters::MODULUS, true);
+        let input = input::generate(M, 3, Fq377Parameters::MODULUS, true);
         let rounds = RoundNumbersWrapper::generate(&input, &Alpha::Exponent(17));
         let mds: MdsMatrix<Fq377> = MdsMatrixWrapper::generate(&input);
         let M_00 = mds.get_element(0, 0);

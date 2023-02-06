@@ -7,9 +7,8 @@ mod tests {
     use ark_ff::{fields::FpParameters, BigInteger768};
     use num_bigint::BigUint;
     use poseidon_parameters::{Alpha, PoseidonParameters};
-    use poseidon_paramgen::{
-        InputParametersWrapper, PoseidonParametersWrapper, RoundNumbersWrapper,
-    };
+
+    use crate::{input, PoseidonParametersWrapper, RoundNumbersWrapper};
 
     /// Represents a row in Table 7-9 in Appendix G of the paper.
     #[allow(dead_code)]
@@ -81,7 +80,7 @@ mod tests {
                 r_P: row[5],
                 cost: row[6],
             };
-            let input = InputParametersWrapper::new(table_row.M, table_row.t, table_row.p, true);
+            let input = input::generate(table_row.M, table_row.t, table_row.p, true);
             let rounds = RoundNumbersWrapper::generate(&input, &alpha);
             assert_eq!(rounds.r_F, table_row.r_F);
             assert_eq!(rounds.r_P, table_row.r_P);
@@ -133,7 +132,7 @@ mod tests {
                 cost: row[6],
             };
 
-            let input = InputParametersWrapper::new(table_row.M, table_row.t, table_row.p, true);
+            let input = input::generate(table_row.M, table_row.t, table_row.p, true);
             let rounds = RoundNumbersWrapper::generate(&input, &alpha);
             assert_eq!(rounds.r_F, table_row.r_F);
             assert_eq!(rounds.r_P, table_row.r_P);
@@ -184,7 +183,7 @@ mod tests {
                 r_P: row[5],
                 cost: row[6],
             };
-            let input = InputParametersWrapper::new(table_row.M, table_row.t, table_row.p, true);
+            let input = input::generate(table_row.M, table_row.t, table_row.p, true);
             let rounds = RoundNumbersWrapper::generate(&input, &alpha);
             assert_eq!(rounds.full(), table_row.r_F);
             assert_eq!(rounds.partial(), table_row.r_P);
@@ -196,7 +195,7 @@ mod tests {
         let alpha = Alpha::Exponent(17);
 
         // $t=2$ corresponds to a 1:1 hash
-        let input = InputParametersWrapper::new(128, 2, Fq377Parameters::MODULUS, true);
+        let input = input::generate(128, 2, Fq377Parameters::MODULUS, true);
         let _rounds = RoundNumbersWrapper::generate(&input, &alpha);
         // Calling PoseidonParameters::new runs a bunch of assertions to ensure the optimized matrices
         // have been property constructed.
@@ -204,7 +203,7 @@ mod tests {
             PoseidonParametersWrapper::new(128, 2, Fq377Parameters::MODULUS, true);
 
         // $t=3$ corresponds to a 2:1 hash
-        let input = InputParametersWrapper::new(128, 3, Fq377Parameters::MODULUS, true);
+        let input = input::generate(128, 3, Fq377Parameters::MODULUS, true);
         let rounds = RoundNumbersWrapper::generate(&input, &alpha);
         assert_eq!(rounds.full(), 8);
         assert_eq!(rounds.partial(), 31);
@@ -212,7 +211,7 @@ mod tests {
             PoseidonParametersWrapper::new(128, 3, Fq377Parameters::MODULUS, true);
 
         // $t=4$ corresponds to a 3:1 hash
-        let input = InputParametersWrapper::new(128, 4, Fq377Parameters::MODULUS, true);
+        let input = input::generate(128, 4, Fq377Parameters::MODULUS, true);
         let rounds = RoundNumbersWrapper::generate(&input, &alpha);
         assert_eq!(rounds.full(), 8);
         assert_eq!(rounds.partial(), 31);
@@ -220,7 +219,7 @@ mod tests {
             PoseidonParametersWrapper::new(128, 4, Fq377Parameters::MODULUS, true);
 
         // $t=5$ corresponds to a 4:1 hash
-        let input = InputParametersWrapper::new(128, 5, Fq377Parameters::MODULUS, true);
+        let input = input::generate(128, 5, Fq377Parameters::MODULUS, true);
         let rounds = RoundNumbersWrapper::generate(&input, &alpha);
         assert_eq!(rounds.full(), 8);
         assert_eq!(rounds.partial(), 31);
@@ -228,7 +227,7 @@ mod tests {
             PoseidonParametersWrapper::new(128, 5, Fq377Parameters::MODULUS, true);
 
         // $t=6$ corresponds to a 5:1 hash
-        let input = InputParametersWrapper::new(128, 6, Fq377Parameters::MODULUS, true);
+        let input = input::generate(128, 6, Fq377Parameters::MODULUS, true);
         let rounds = RoundNumbersWrapper::generate(&input, &alpha);
         assert_eq!(rounds.full(), 8);
         assert_eq!(rounds.partial(), 31);
