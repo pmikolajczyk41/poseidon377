@@ -38,7 +38,13 @@ std = [
     "num-bigint/std",
     "once_cell/std",
 ]
-r1cs = ["ark-groth16", "ark-relations", "ark-snark", "ark-r1cs-std"]
+r1cs = [
+    "ark-groth16",
+    "ark-relations",
+    "ark-snark",
+    "ark-r1cs-std",
+    "ark-sponge/r1cs"
+]
 
 [[bench]]
 name = "oldhash"

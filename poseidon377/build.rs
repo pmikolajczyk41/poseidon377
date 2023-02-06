@@ -1,11 +1,12 @@
-use ark_ed_on_bls12_377::{Fq, FqParameters};
-use ark_ff::FpParameters;
-use poseidon_paramgen::poseidon_build;
 use std::{
     env, fs,
     io::{BufWriter, Write},
     path::PathBuf,
 };
+
+use ark_ed_on_bls12_377::{Fq, FqParameters};
+use ark_ff::FpParameters;
+use poseidon_paramgen::poseidon_build;
 
 fn main() {
     // We use the default `OUT_DIR` set by Cargo when a build script exists.
