@@ -3,13 +3,13 @@ use std::fmt::Display;
 use ark_ff::PrimeField;
 use ark_std::vec::Vec;
 use num::BigUint;
-use poseidon_parameters::{Alpha, Matrix, MatrixOperations};
+use poseidon_parameters::{Alpha, Matrix, MatrixOperations, MdsMatrix, PoseidonParameters};
 
 use crate::{
+    generate,
     matrix::{MatrixWrapper, SquareMatrixWrapper},
-    mds::MdsMatrixWrapper,
     round_constants::ArcMatrixWrapper,
-    OptimizedArcMatrixWrapper, OptimizedMdsMatricesWrapper, PoseidonParametersWrapper,
+    OptimizedArcMatrixWrapper, OptimizedMdsMatricesWrapper,
 };
 
 /// Create parameter code.
@@ -24,15 +24,15 @@ use poseidon_parameters::{Alpha, ArcMatrix, RoundNumbers, SquareMatrix, Matrix, 
         .to_string();
 
     for t in t_values {
-        let params: PoseidonParametersWrapper<F> =
-            PoseidonParametersWrapper::<F>::new(M, t, p, allow_inverse).into();
-        params_code.push_str(&format!("{}", params)[..]);
+        let params = generate::<F>(M, t, p, allow_inverse);
+        params_code.push_str(&format!("{}", DisplayablePoseidonParameters(params))[..]);
     }
 
     params_code
 }
 
-impl<F: PrimeField> Display for PoseidonParametersWrapper<F> {
+struct DisplayablePoseidonParameters<F: PrimeField>(PoseidonParameters<F>);
+impl<F: PrimeField> Display for DisplayablePoseidonParameters<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let this = &self.0;
 
@@ -45,7 +45,7 @@ impl<F: PrimeField> Display for PoseidonParametersWrapper<F> {
         let r_F = rounds.full();
 
         let arc = ArcMatrixWrapper(this.arc.clone());
-        let mds = MdsMatrixWrapper(this.mds.clone());
+        let mds = &this.mds;
         let alpha = this.alpha;
         let optimized_mds = OptimizedMdsMatricesWrapper(this.optimized_mds.clone());
         let optimized_arc = OptimizedArcMatrixWrapper(this.optimized_arc.clone());
@@ -69,7 +69,7 @@ pub fn rate_{rate}<F: PrimeField>() -> PoseidonParameters<F> {{
             this.M,
             this.t,
             arc,
-            mds,
+            DisplayableMdsMatrix(mds.clone()),
             DisplayableAlpha(alpha),
             optimized_mds,
             optimized_arc
@@ -205,9 +205,10 @@ impl<F: PrimeField> Display for OptimizedMdsMatricesWrapper<F> {
     }
 }
 
-impl<F: PrimeField> Display for MdsMatrixWrapper<F> {
+struct DisplayableMdsMatrix<F: PrimeField>(MdsMatrix<F>);
+impl<F: PrimeField> Display for DisplayableMdsMatrix<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mds_elements: Vec<F> = self.into();
+        let mds_elements: Vec<F> = self.0.elements().to_vec();
 
         let mut mds_str = "MdsMatrix::from_elements(".to_string();
         mds_str.push_str(&serialize_vec_f(mds_elements));

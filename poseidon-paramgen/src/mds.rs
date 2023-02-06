@@ -7,125 +7,54 @@ use poseidon_parameters::{
     RoundNumbers, SquareMatrix, SquareMatrixOperations,
 };
 
-/// Represents an MDS (maximum distance separable) matrix.
-#[derive(Debug)]
-pub struct MdsMatrixWrapper<F: PrimeField>(pub MdsMatrix<F>);
-
-impl<F: PrimeField> From<MdsMatrix<F>> for MdsMatrixWrapper<F> {
-    fn from(value: MdsMatrix<F>) -> Self {
-        Self(value)
+/// Generate the MDS matrix.
+pub fn generate<F: PrimeField>(input: &InputParameters<F::BigInt>) -> MdsMatrix<F> {
+    // A t x t MDS matrix only exists if: 2t + 1 <= p
+    let two_times_t_bigint: F::BigInt = (2 * input.t as u64).into();
+    if two_times_t_bigint > input.p {
+        panic!("no MDS matrix exists");
     }
+
+    fixed_cauchy_matrix(input)
 }
 
-impl<F: PrimeField> Deref for MdsMatrixWrapper<F> {
-    type Target = MdsMatrix<F>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+/// Generate a deterministic Cauchy matrix
+///
+/// The original Poseidon paper describes a method for constructing MDS matrices
+/// from randomly selecting $x_i$, $y_j$ from the field and then constructing each element in the
+/// matrix using $1/(x_i + y_j)$. The resulting Cauchy matrix needs to then be passed to algorithms 1-3
+/// described in
+/// [Grassi, Rechberger, Schofnegger 2020](https://eprint.iacr.org/archive/2020/500/20200702:141143)
+/// in order to determine if infinitely long subspace trails can be constructed for
+/// the Cauchy matrix. If yes, then the MDS matrix must be thrown away, and the process
+/// must begin again for another random choice of $x_i$, $y_j$ until a secure choice is found.
+///
+/// However, here we use a deterministic method for creating Cauchy matrices that has
+/// been empirically checked to be safe using the three algorithms above over `decaf377` for t=1-100.
+pub fn fixed_cauchy_matrix<F: PrimeField>(input: &InputParameters<F::BigInt>) -> MdsMatrix<F> {
+    // We explicitly check for small fields where the deterministic procedure can fail.
+    // In these cases, the full algorithms 1-3 should be implemented.
+    if input.p.num_bits() < 128 {
+        panic!("field too small to use deterministic MDS matrix generation")
     }
-}
 
-impl<F: PrimeField> MdsMatrixWrapper<F> {
-    /// Generate the MDS matrix.
-    pub fn generate(input: &InputParameters<F::BigInt>) -> MdsMatrix<F> {
-        // A t x t MDS matrix only exists if: 2t + 1 <= p
-        let two_times_t_bigint: F::BigInt = (2 * input.t as u64).into();
-        if two_times_t_bigint > input.p {
-            panic!("no MDS matrix exists");
+    let xs: Vec<F> = (0..input.t as u64).map(F::from).collect();
+    let ys: Vec<F> = (input.t as u64..2 * input.t as u64).map(F::from).collect();
+
+    let mut elements = Vec::<F>::with_capacity(input.t);
+    for i in 0..input.t {
+        for j in 0..input.t {
+            // Check x_i + y_j != 0
+            assert_ne!(xs[i] + ys[i], F::zero());
+            elements.push(F::one() / (xs[i] + ys[j]))
         }
-
-        Self::fixed_cauchy_matrix(input)
     }
 
-    /// Generate a deterministic Cauchy matrix
-    ///
-    /// The original Poseidon paper describes a method for constructing MDS matrices
-    /// from randomly selecting $x_i$, $y_j$ from the field and then constructing each element in the
-    /// matrix using $1/(x_i + y_j)$. The resulting Cauchy matrix needs to then be passed to algorithms 1-3
-    /// described in
-    /// [Grassi, Rechberger, Schofnegger 2020](https://eprint.iacr.org/archive/2020/500/20200702:141143)
-    /// in order to determine if infinitely long subspace trails can be constructed for
-    /// the Cauchy matrix. If yes, then the MDS matrix must be thrown away, and the process
-    /// must begin again for another random choice of $x_i$, $y_j$ until a secure choice is found.
-    ///
-    /// However, here we use a deterministic method for creating Cauchy matrices that has
-    /// been empirically checked to be safe using the three algorithms above over `decaf377` for t=1-100.
-    pub fn fixed_cauchy_matrix(input: &InputParameters<F::BigInt>) -> MdsMatrix<F> {
-        // We explicitly check for small fields where the deterministic procedure can fail.
-        // In these cases, the full algorithms 1-3 should be implemented.
-        if input.p.num_bits() < 128 {
-            panic!("field too small to use deterministic MDS matrix generation")
-        }
+    let cauchy_matrix = SquareMatrix::from_vec(elements);
+    // Sanity check: All Cauchy matrices should be invertible
+    assert!(cauchy_matrix.determinant() != F::zero());
 
-        let xs: Vec<F> = (0..input.t as u64).map(F::from).collect();
-        let ys: Vec<F> = (input.t as u64..2 * input.t as u64).map(F::from).collect();
-
-        let mut elements = Vec::<F>::with_capacity(input.t);
-        for i in 0..input.t {
-            for j in 0..input.t {
-                // Check x_i + y_j != 0
-                assert_ne!(xs[i] + ys[i], F::zero());
-                elements.push(F::one() / (xs[i] + ys[j]))
-            }
-        }
-
-        let cauchy_matrix = SquareMatrix::from_vec(elements);
-        // Sanity check: All Cauchy matrices should be invertible
-        assert!(cauchy_matrix.determinant() != F::zero());
-
-        MdsMatrix(cauchy_matrix)
-    }
-
-    /// Compute inverse of MDS matrix
-    pub fn inverse(&self) -> SquareMatrix<F> {
-        self.0
-             .0
-            .inverse()
-            .expect("all well-formed MDS matrices should have inverses")
-    }
-
-    /// Compute the (t - 1) x (t - 1) Mhat matrix from the MDS matrix
-    ///
-    /// This is simply the MDS matrix with the first row and column removed
-    ///
-    /// Ref: p.20 of the Poseidon paper
-    pub fn hat(&self) -> SquareMatrix<F> {
-        let dim = self.n_rows();
-        let mut mhat_elements = Vec::with_capacity((dim - 1) * (dim - 1));
-        for i in 1..dim {
-            for j in 1..dim {
-                mhat_elements.push(self.0.get_element(i, j))
-            }
-        }
-
-        SquareMatrix::from_vec(mhat_elements)
-    }
-
-    /// Return the elements M_{0,1} .. M_{0,t} from the first row
-    ///
-    /// Ref: p.20 of the Poseidon paper
-    pub fn v(&self) -> Matrix<F> {
-        let elements: Vec<F> = self.0 .0.elements()[1..self.0 .0.n_rows()].to_vec();
-        Matrix::new(1, self.0.n_rows() - 1, elements)
-    }
-
-    /// Return the elements M_{1,0} .. M_{t,0}from the first column
-    ///
-    /// Ref: p.20 of the Poseidon paper
-    pub fn w(&self) -> Matrix<F> {
-        let mut elements = Vec::with_capacity(self.0.n_rows() - 1);
-        for i in 1..self.n_rows() {
-            elements.push(self.get_element(i, 0))
-        }
-        Matrix::new(&self.n_rows() - 1, 1, elements)
-    }
-}
-
-impl<F: PrimeField> From<&MdsMatrixWrapper<F>> for Vec<F> {
-    fn from(val: &MdsMatrixWrapper<F>) -> Self {
-        let elements = val.0 .0.elements();
-        elements.to_vec()
-    }
+    MdsMatrix(cauchy_matrix)
 }
 
 /// Represents an optimized MDS (maximum distance separable) matrix.
@@ -156,12 +85,12 @@ where
         t: usize,
         rounds: &RoundNumbers,
     ) -> OptimizedMdsMatrices<F> {
-        let M_hat = MdsMatrixWrapper(mds.clone()).hat();
+        let M_hat = mds.hat();
         let M_hat_inverse = M_hat
             .inverse()
             .expect("all well-formed MDS matrices should have inverses");
-        let v = MdsMatrixWrapper(mds.clone()).v();
-        let w = MdsMatrixWrapper(mds.clone()).w();
+        let v = mds.v();
+        let w = mds.w();
         let M_prime = OptimizedMdsMatricesWrapper::prime(&M_hat);
         let M_00 = mds.get_element(0, 0);
         let M_doubleprime = OptimizedMdsMatricesWrapper::doubleprime(&M_hat_inverse, &w, &v, M_00);
@@ -208,7 +137,7 @@ where
             w,
             M_prime,
             M_doubleprime,
-            M_inverse: MdsMatrixWrapper(mds.clone()).inverse(),
+            M_inverse: mds.inverse(),
             M_i,
             v_collection,
             w_hat_collection,
@@ -230,10 +159,10 @@ where
         let mut M_i = OptimizedMdsMatricesWrapper::prime(&M_mul.0);
 
         for _ in (0..r_P).rev() {
-            let M_hat = MdsMatrixWrapper(M_mul.clone()).hat();
-            let w = MdsMatrixWrapper(M_mul.clone()).w();
+            let M_hat = M_mul.hat();
+            let w = M_mul.w();
 
-            let v = MdsMatrixWrapper(M_mul).v();
+            let v = M_mul.v();
             v_collection.push(v);
             let w_hat = mat_mul(&M_hat.clone().inverse().expect("can invert Mhat").0, &w)
                 .expect("can compute w_hat");
@@ -331,7 +260,7 @@ mod tests {
         let t = 3;
 
         let input = input::generate(M, 3, Fq381Parameters::MODULUS, true);
-        let MDS_matrix: MdsMatrix<Fq> = MdsMatrixWrapper::generate(&input);
+        let MDS_matrix: MdsMatrix<Fq> = generate(&input);
 
         assert!(MDS_matrix.0.determinant() != Fq::zero());
         assert_eq!(MDS_matrix.n_rows(), t);
@@ -344,7 +273,7 @@ mod tests {
 
         let input = input::generate(M, 3, Fq377Parameters::MODULUS, true);
         let rounds = rounds::generate(&input, &Alpha::Exponent(17));
-        let mds: MdsMatrix<Fq377> = MdsMatrixWrapper::generate(&input);
+        let mds: MdsMatrix<Fq377> = generate(&input);
         let M_00 = mds.get_element(0, 0);
         // Sanity check
         assert_eq!(

@@ -8,7 +8,7 @@ use poseidon_parameters::{
     OptimizedArcMatrix, RoundNumbers,
 };
 
-use crate::{mds::MdsMatrixWrapper, transcript::TranscriptProtocol};
+use crate::transcript::TranscriptProtocol;
 
 /// Represents an matrix of round constants.
 #[derive(Debug)]
@@ -106,7 +106,7 @@ impl<F: PrimeField> OptimizedArcMatrixWrapper<F> {
         let r_f = rounds.full() / 2;
         let r_T = rounds.total();
         let mds_T = mds.transpose();
-        let mds_inv = &MdsMatrixWrapper(mds_T).inverse();
+        let mds_inv = mds_T.inverse();
 
         // C_i = M^-1 * C_(i+1)
         for r in ((r_f)..(r_T - 1 - r_f)).rev() {
