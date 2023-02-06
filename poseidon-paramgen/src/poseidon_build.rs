@@ -9,8 +9,7 @@ use crate::{
     matrix::{MatrixWrapper, SquareMatrixWrapper},
     mds::MdsMatrixWrapper,
     round_constants::ArcMatrixWrapper,
-    AlphaWrapper, OptimizedArcMatrixWrapper, OptimizedMdsMatricesWrapper,
-    PoseidonParametersWrapper,
+    OptimizedArcMatrixWrapper, OptimizedMdsMatricesWrapper, PoseidonParametersWrapper,
 };
 
 /// Create parameter code.
@@ -47,7 +46,7 @@ impl<F: PrimeField> Display for PoseidonParametersWrapper<F> {
 
         let arc = ArcMatrixWrapper(this.arc.clone());
         let mds = MdsMatrixWrapper(this.mds.clone());
-        let alpha = AlphaWrapper(this.alpha);
+        let alpha = this.alpha;
         let optimized_mds = OptimizedMdsMatricesWrapper(this.optimized_mds.clone());
         let optimized_arc = OptimizedArcMatrixWrapper(this.optimized_arc.clone());
 
@@ -67,12 +66,19 @@ pub fn rate_{rate}<F: PrimeField>() -> PoseidonParameters<F> {{
     }}
 }}
 ",
-            this.M, this.t, arc, mds, alpha, optimized_mds, optimized_arc
+            this.M,
+            this.t,
+            arc,
+            mds,
+            DisplayableAlpha(alpha),
+            optimized_mds,
+            optimized_arc
         )
     }
 }
 
-impl Display for AlphaWrapper {
+struct DisplayableAlpha(Alpha);
+impl Display for DisplayableAlpha {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             Alpha::Exponent(exp) => write!(f, "Alpha::Exponent({exp})"),

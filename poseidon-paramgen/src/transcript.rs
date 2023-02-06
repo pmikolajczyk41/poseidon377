@@ -3,8 +3,6 @@ use ark_std::vec;
 use merlin::Transcript;
 use poseidon_parameters::{Alpha, InputParameters, RoundNumbers};
 
-use crate::alpha::AlphaWrapper;
-
 pub(crate) trait TranscriptProtocol {
     fn domain_sep<F: PrimeField>(
         &mut self,
@@ -27,8 +25,6 @@ impl TranscriptProtocol for Transcript {
         self.append_message(b"t", &input.t.to_le_bytes());
         self.append_message(b"M", &input.M.to_le_bytes());
         self.append_message(b"p", &input.p.to_bytes_le());
-
-        let alpha: AlphaWrapper = alpha.into();
 
         // Bind transcript also to specific instance as done with the Grain LFSR
         // in Appendix F of the Poseidon paper.

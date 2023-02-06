@@ -34,15 +34,13 @@ pub mod poseidon_build;
 
 use core::ops::Deref;
 
-use alpha::AlphaWrapper;
 use ark_ff::PrimeField;
+pub use input::InputParametersWrapper;
 use mds::{MdsMatrixWrapper, OptimizedMdsMatricesWrapper};
 use poseidon_parameters::PoseidonParameters;
 use round_constants::{ArcMatrixWrapper, OptimizedArcMatrixWrapper};
-use utils::log2;
-
-pub use input::InputParametersWrapper;
 pub use rounds::RoundNumbersWrapper;
+use utils::log2;
 
 /// A set of Poseidon parameters for a given set of input parameters.
 pub struct PoseidonParametersWrapper<F: PrimeField>(pub PoseidonParameters<F>);
@@ -71,7 +69,7 @@ impl<F: PrimeField> PoseidonParametersWrapper<F> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(M: usize, t: usize, p: F::BigInt, allow_inverse: bool) -> PoseidonParameters<F> {
         let input = InputParametersWrapper::new(M, t, p, allow_inverse);
-        let alpha = AlphaWrapper::generate::<F>(p, allow_inverse);
+        let alpha = alpha::generate::<F>(p, allow_inverse);
         let rounds = RoundNumbersWrapper::generate(&input, &alpha);
         let mds = MdsMatrixWrapper::generate(&input);
         let arc = ArcMatrixWrapper::generate(&input, rounds, alpha);
