@@ -65,7 +65,7 @@ jobs:
          curl -LSfs https://japaric.github.io/trust/install.sh | \
            sh -s -- --git hobofan/cargo-nono
      - run: |
-         packages="${{ poseidon_parameters poseidon_permutation }}"
+         packages="poseidon_parameters poseidon_permutation"
          for p in ${packages[@]}
          do
            echo "Checking package $p..."
