@@ -1,5 +1,3 @@
-use core::ops::Deref;
-
 use ark_ff::{BigInteger, PrimeField};
 use ark_std::vec::Vec;
 use poseidon_parameters::{
@@ -57,176 +55,149 @@ pub fn fixed_cauchy_matrix<F: PrimeField>(input: &InputParameters<F::BigInt>) ->
     MdsMatrix(cauchy_matrix)
 }
 
-/// Represents an optimized MDS (maximum distance separable) matrix.
-#[derive(Debug)]
-pub struct OptimizedMdsMatricesWrapper<F: PrimeField>(pub OptimizedMdsMatrices<F>);
+/// Generate the optimized MDS matrices.
+pub fn generate_optimized<F: PrimeField>(
+    mds: &MdsMatrix<F>,
+    t: usize,
+    rounds: &RoundNumbers,
+) -> OptimizedMdsMatrices<F> {
+    let M_hat = mds.hat();
+    let M_hat_inverse = M_hat
+        .inverse()
+        .expect("all well-formed MDS matrices should have inverses");
+    let v = mds.v();
+    let w = mds.w();
+    let M_prime = prime(&M_hat);
+    let M_00 = mds.get_element(0, 0);
+    let M_doubleprime = doubleprime(&M_hat_inverse, &w, &v, M_00);
 
-impl<F: PrimeField> From<OptimizedMdsMatrices<F>> for OptimizedMdsMatricesWrapper<F> {
-    fn from(value: OptimizedMdsMatrices<F>) -> Self {
-        Self(value)
+    // Sanity checks
+    assert_eq!(M_prime.n_cols(), mds.n_cols());
+    assert_eq!(M_hat.n_cols() + 1, mds.n_cols());
+
+    // If M' and M'' are well-formed, then M = M' * M'' (Eqn. 7, Appendix B)
+    assert_eq!(
+        mds.0,
+        mat_mul(&M_prime, &M_doubleprime).expect("M' and M'' must have the same dimensions")
+    );
+
+    // If M'' is well-formed, it should be sparse with:
+    // (t - 1)^2 - (t - 1) coefficients equal to 0
+    // t - 1 coefficients equal to 1
+    // (Text under Eqn. 7, Appendix B)
+    assert_eq!(
+        M_doubleprime
+            .elements()
+            .iter()
+            .filter(|&n| *n == F::zero())
+            .count(),
+        (t - 1) * (t - 1) - (t - 1)
+    );
+    assert_eq!(
+        M_doubleprime
+            .elements()
+            .iter()
+            .filter(|&n| *n == F::one())
+            .count(),
+        t - 1
+    );
+
+    // From `calc_equivalent_matrices` in `poseidonperm_x3_64_24_optimized.sage`.
+    let (M_i, v_collection, w_hat_collection) = calc_equivalent_matrices(mds, rounds);
+
+    OptimizedMdsMatrices {
+        M_hat,
+        M_hat_inverse,
+        v,
+        w,
+        M_prime,
+        M_doubleprime,
+        M_inverse: mds.inverse(),
+        M_i,
+        v_collection,
+        w_hat_collection,
+        M_00,
     }
 }
 
-impl<F: PrimeField> Deref for OptimizedMdsMatricesWrapper<F> {
-    type Target = OptimizedMdsMatrices<F>;
+pub fn calc_equivalent_matrices<F: PrimeField>(
+    mds: &MdsMatrix<F>,
+    rounds: &RoundNumbers,
+) -> (Matrix<F>, Vec<Matrix<F>>, Vec<Matrix<F>>) {
+    // let rounds: RoundNumbers<poseidon_parameters::RoundNumbers> = RoundNumbersWrapper(*rounds);
+    let r_P = rounds.partial();
+    let mut w_hat_collection = Vec::with_capacity(rounds.partial());
+    let mut v_collection = Vec::with_capacity(rounds.partial());
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    let M_T = mds.transpose();
+    let mut M_mul = M_T.clone();
+    let mut M_i = prime(&M_mul.0);
+
+    for _ in (0..r_P).rev() {
+        let M_hat = M_mul.hat();
+        let w = M_mul.w();
+
+        let v = M_mul.v();
+        v_collection.push(v);
+        let w_hat = mat_mul(&M_hat.clone().inverse().expect("can invert Mhat").0, &w)
+            .expect("can compute w_hat");
+        w_hat_collection.push(w_hat);
+
+        // Now we compute M' and M * M' for the previous round
+        M_i = prime(&M_hat);
+
+        M_mul = MdsMatrix(mat_mul(&M_T.0, &M_i).expect("mds and M_i have same dimensions"));
     }
+
+    (M_i.0.transpose(), v_collection, w_hat_collection)
 }
 
-impl<F> OptimizedMdsMatricesWrapper<F>
-where
-    F: PrimeField,
-{
-    /// Generate the optimized MDS matrices.
-    pub fn generate(
-        mds: &MdsMatrix<F>,
-        t: usize,
-        rounds: &RoundNumbers,
-    ) -> OptimizedMdsMatrices<F> {
-        let M_hat = mds.hat();
-        let M_hat_inverse = M_hat
-            .inverse()
-            .expect("all well-formed MDS matrices should have inverses");
-        let v = mds.v();
-        let w = mds.w();
-        let M_prime = OptimizedMdsMatricesWrapper::prime(&M_hat);
-        let M_00 = mds.get_element(0, 0);
-        let M_doubleprime = OptimizedMdsMatricesWrapper::doubleprime(&M_hat_inverse, &w, &v, M_00);
+fn prime<F: PrimeField>(M_hat: &SquareMatrix<F>) -> SquareMatrix<F> {
+    let dim = M_hat.n_cols() + 1;
+    let mut new_elements = Vec::with_capacity(dim * dim);
 
-        // Sanity checks
-        assert_eq!(M_prime.n_cols(), mds.n_cols());
-        assert_eq!(M_hat.n_cols() + 1, mds.n_cols());
-
-        // If M' and M'' are well-formed, then M = M' * M'' (Eqn. 7, Appendix B)
-        assert_eq!(
-            mds.0,
-            mat_mul(&M_prime, &M_doubleprime).expect("M' and M'' must have the same dimensions")
-        );
-
-        // If M'' is well-formed, it should be sparse with:
-        // (t - 1)^2 - (t - 1) coefficients equal to 0
-        // t - 1 coefficients equal to 1
-        // (Text under Eqn. 7, Appendix B)
-        assert_eq!(
-            M_doubleprime
-                .elements()
-                .iter()
-                .filter(|&n| *n == F::zero())
-                .count(),
-            (t - 1) * (t - 1) - (t - 1)
-        );
-        assert_eq!(
-            M_doubleprime
-                .elements()
-                .iter()
-                .filter(|&n| *n == F::one())
-                .count(),
-            t - 1
-        );
-
-        // From `calc_equivalent_matrices` in `poseidonperm_x3_64_24_optimized.sage`.
-        let (M_i, v_collection, w_hat_collection) =
-            OptimizedMdsMatricesWrapper::calc_equivalent_matrices(mds, rounds);
-
-        OptimizedMdsMatrices {
-            M_hat,
-            M_hat_inverse,
-            v,
-            w,
-            M_prime,
-            M_doubleprime,
-            M_inverse: mds.inverse(),
-            M_i,
-            v_collection,
-            w_hat_collection,
-            M_00,
-        }
-    }
-
-    pub(crate) fn calc_equivalent_matrices(
-        mds: &MdsMatrix<F>,
-        rounds: &RoundNumbers,
-    ) -> (Matrix<F>, Vec<Matrix<F>>, Vec<Matrix<F>>) {
-        // let rounds: RoundNumbers<poseidon_parameters::RoundNumbers> = RoundNumbersWrapper(*rounds);
-        let r_P = rounds.partial();
-        let mut w_hat_collection = Vec::with_capacity(rounds.partial());
-        let mut v_collection = Vec::with_capacity(rounds.partial());
-
-        let M_T = mds.transpose();
-        let mut M_mul = M_T.clone();
-        let mut M_i = OptimizedMdsMatricesWrapper::prime(&M_mul.0);
-
-        for _ in (0..r_P).rev() {
-            let M_hat = M_mul.hat();
-            let w = M_mul.w();
-
-            let v = M_mul.v();
-            v_collection.push(v);
-            let w_hat = mat_mul(&M_hat.clone().inverse().expect("can invert Mhat").0, &w)
-                .expect("can compute w_hat");
-            w_hat_collection.push(w_hat);
-
-            // Now we compute M' and M * M' for the previous round
-            M_i = OptimizedMdsMatricesWrapper::prime(&M_hat);
-
-            M_mul = poseidon_parameters::MdsMatrix(
-                mat_mul(&M_T.0, &M_i).expect("mds and M_i have same dimensions"),
-            );
-        }
-
-        (M_i.0.transpose(), v_collection, w_hat_collection)
-    }
-
-    fn prime(M_hat: &SquareMatrix<F>) -> SquareMatrix<F> {
-        let dim = M_hat.n_cols() + 1;
-        let mut new_elements = Vec::with_capacity(dim * dim);
-
-        for i in 0..dim {
-            for j in 0..dim {
-                if i == 0 && j == 0 {
-                    // M_00 = 1
-                    new_elements.push(F::one());
-                } else if i == 0 || j == 0 {
-                    new_elements.push(F::zero());
-                } else {
-                    new_elements.push(M_hat.get_element(i - 1, j - 1))
-                }
+    for i in 0..dim {
+        for j in 0..dim {
+            if i == 0 && j == 0 {
+                // M_00 = 1
+                new_elements.push(F::one());
+            } else if i == 0 || j == 0 {
+                new_elements.push(F::zero());
+            } else {
+                new_elements.push(M_hat.get_element(i - 1, j - 1))
             }
         }
-
-        SquareMatrix::from_vec(new_elements)
     }
 
-    fn doubleprime(
-        M_hat_inverse: &SquareMatrix<F>,
-        w: &Matrix<F>,
-        v: &Matrix<F>,
-        M_00: F,
-    ) -> SquareMatrix<F> {
-        let dim = M_hat_inverse.n_cols() + 1;
-        let mut new_elements = Vec::with_capacity(dim * dim);
-        let identity = SquareMatrix::identity(dim - 1);
-        let w_hat =
-            mat_mul(&M_hat_inverse.0, w).expect("matrix multiplication should always exist");
+    SquareMatrix::from_vec(new_elements)
+}
 
-        for i in 0..dim {
-            for j in 0..dim {
-                if i == 0 && j == 0 {
-                    new_elements.push(M_00);
-                } else if i == 0 {
-                    new_elements.push(v.get_element(0, j - 1));
-                } else if j == 0 {
-                    new_elements.push(w_hat.get_element(i - 1, 0));
-                } else {
-                    new_elements.push(identity.get_element(i - 1, j - 1))
-                }
+fn doubleprime<F: PrimeField>(
+    M_hat_inverse: &SquareMatrix<F>,
+    w: &Matrix<F>,
+    v: &Matrix<F>,
+    M_00: F,
+) -> SquareMatrix<F> {
+    let dim = M_hat_inverse.n_cols() + 1;
+    let mut new_elements = Vec::with_capacity(dim * dim);
+    let identity = SquareMatrix::identity(dim - 1);
+    let w_hat = mat_mul(&M_hat_inverse.0, w).expect("matrix multiplication should always exist");
+
+    for i in 0..dim {
+        for j in 0..dim {
+            if i == 0 && j == 0 {
+                new_elements.push(M_00);
+            } else if i == 0 {
+                new_elements.push(v.get_element(0, j - 1));
+            } else if j == 0 {
+                new_elements.push(w_hat.get_element(i - 1, 0));
+            } else {
+                new_elements.push(identity.get_element(i - 1, j - 1))
             }
         }
-
-        SquareMatrix::from_vec(new_elements)
     }
+
+    SquareMatrix::from_vec(new_elements)
 }
 
 #[cfg(test)]
@@ -284,8 +255,7 @@ mod tests {
             ),
         );
 
-        let (M_i, v_collection, w_hat_collection) =
-            OptimizedMdsMatricesWrapper::calc_equivalent_matrices(&mds, &rounds);
+        let (M_i, v_collection, w_hat_collection) = calc_equivalent_matrices(&mds, &rounds);
 
         // There are 31 (number of partial rounds) of these, we check the first 2 since it's the same method.
         let v_collection_expected = [
