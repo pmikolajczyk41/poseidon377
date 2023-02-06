@@ -39,7 +39,6 @@ use ark_ff::PrimeField;
 use mds::{MdsMatrixWrapper, OptimizedMdsMatricesWrapper};
 use poseidon_parameters::PoseidonParameters;
 use round_constants::{ArcMatrixWrapper, OptimizedArcMatrixWrapper};
-pub use rounds::RoundNumbersWrapper;
 use utils::log2;
 
 /// A set of Poseidon parameters for a given set of input parameters.
@@ -70,7 +69,7 @@ impl<F: PrimeField> PoseidonParametersWrapper<F> {
     pub fn new(M: usize, t: usize, p: F::BigInt, allow_inverse: bool) -> PoseidonParameters<F> {
         let input = input::generate(M, t, p, allow_inverse);
         let alpha = alpha::generate::<F>(p, allow_inverse);
-        let rounds = RoundNumbersWrapper::generate(&input, &alpha);
+        let rounds = rounds::generate(&input, &alpha);
         let mds = MdsMatrixWrapper::generate(&input);
         let arc = ArcMatrixWrapper::generate(&input, rounds, alpha);
         let optimized_mds = OptimizedMdsMatricesWrapper::generate(&mds, t, &rounds);

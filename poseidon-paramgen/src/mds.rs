@@ -308,7 +308,7 @@ mod tests {
     use poseidon_parameters::Alpha;
 
     use super::*;
-    use crate::{input, rounds::RoundNumbersWrapper};
+    use crate::{input, rounds};
 
     #[test]
     fn convert_from_mds_to_vec_of_vecs() {
@@ -343,7 +343,7 @@ mod tests {
         let M = 128;
 
         let input = input::generate(M, 3, Fq377Parameters::MODULUS, true);
-        let rounds = RoundNumbersWrapper::generate(&input, &Alpha::Exponent(17));
+        let rounds = rounds::generate(&input, &Alpha::Exponent(17));
         let mds: MdsMatrix<Fq377> = MdsMatrixWrapper::generate(&input);
         let M_00 = mds.get_element(0, 0);
         // Sanity check

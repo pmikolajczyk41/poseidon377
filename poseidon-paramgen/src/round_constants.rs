@@ -8,7 +8,7 @@ use poseidon_parameters::{
     OptimizedArcMatrix, RoundNumbers,
 };
 
-use crate::{mds::MdsMatrixWrapper, rounds::RoundNumbersWrapper, transcript::TranscriptProtocol};
+use crate::{mds::MdsMatrixWrapper, transcript::TranscriptProtocol};
 
 /// Represents an matrix of round constants.
 #[derive(Debug)]
@@ -38,7 +38,6 @@ impl<F: PrimeField> ArcMatrixWrapper<F> {
         let mut transcript = Transcript::new(b"round-constants");
         transcript.domain_sep::<F>(input, round_numbers, alpha);
 
-        let round_numbers = RoundNumbersWrapper(round_numbers);
         let num_total_rounds = round_numbers.total();
         let elements = (0..num_total_rounds * input.t)
             .map(|_| transcript.round_constant())
