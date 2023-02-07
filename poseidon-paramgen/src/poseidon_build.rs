@@ -4,11 +4,11 @@ use ark_ff::PrimeField;
 use ark_std::vec::Vec;
 use num::BigUint;
 use poseidon_parameters::{
-    Alpha, Matrix, MatrixOperations, MdsMatrix, OptimizedMdsMatrices, PoseidonParameters,
-    SquareMatrix,
+    Alpha, ArcMatrix, Matrix, MatrixOperations, MdsMatrix, OptimizedArcMatrix,
+    OptimizedMdsMatrices, PoseidonParameters, SquareMatrix,
 };
 
-use crate::{generate, round_constants::ArcMatrixWrapper, OptimizedArcMatrixWrapper};
+use crate::generate;
 
 /// Create parameter code.
 pub fn compile<F: PrimeField>(
@@ -42,11 +42,11 @@ impl<F: PrimeField> Display for DisplayablePoseidonParameters<F> {
         let r_P = rounds.partial();
         let r_F = rounds.full();
 
-        let arc = ArcMatrixWrapper(this.arc.clone());
+        let arc = &this.arc;
         let mds = &this.mds;
         let alpha = this.alpha;
         let optimized_mds = &this.optimized_mds;
-        let optimized_arc = OptimizedArcMatrixWrapper(this.optimized_arc.clone());
+        let optimized_arc = &this.optimized_arc;
 
         write!(
             f,
@@ -66,11 +66,11 @@ pub fn rate_{rate}<F: PrimeField>() -> PoseidonParameters<F> {{
 ",
             this.M,
             this.t,
-            arc,
+            DisplayableArcMatrix(arc.clone()),
             DisplayableMdsMatrix(mds.clone()),
             DisplayableAlpha(alpha),
             DisplayableOptimizedMdsMatrices(optimized_mds.clone()),
-            optimized_arc
+            DisplayableOptimizedArcMatrix(optimized_arc.clone()),
         )
     }
 }
@@ -217,7 +217,8 @@ impl<F: PrimeField> Display for DisplayableMdsMatrix<F> {
     }
 }
 
-impl<F: PrimeField> Display for ArcMatrixWrapper<F> {
+struct DisplayableArcMatrix<F: PrimeField>(ArcMatrix<F>);
+impl<F: PrimeField> Display for DisplayableArcMatrix<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let n_rows = self.0.n_rows();
         let n_cols = self.0.n_cols();
@@ -236,11 +237,26 @@ impl<F: PrimeField> Display for ArcMatrixWrapper<F> {
     }
 }
 
-impl<F: PrimeField> Display for OptimizedArcMatrixWrapper<F> {
+fn optimized_arc_matrix_to_vec_vec<F: PrimeField>(matrix: &OptimizedArcMatrix<F>) -> Vec<Vec<F>> {
+    let mut rows = Vec::<Vec<F>>::new();
+    let arc: &ArcMatrix<F> = &matrix.0;
+
+    for i in 0..arc.n_rows() {
+        let mut row = Vec::new();
+        for j in 0..arc.n_cols() {
+            row.push(arc.get_element(i, j));
+        }
+        rows.push(row);
+    }
+    rows
+}
+
+struct DisplayableOptimizedArcMatrix<F: PrimeField>(OptimizedArcMatrix<F>);
+impl<F: PrimeField> Display for DisplayableOptimizedArcMatrix<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let n_rows = self.0 .0.n_rows();
         let n_cols = self.0 .0.n_cols();
-        let elements: Vec<Vec<F>> = self.into();
+        let elements = optimized_arc_matrix_to_vec_vec(&self.0);
 
         let mut arc_str = "OptimizedArcMatrix::new(".to_string();
         arc_str.push_str(&n_rows.to_string());

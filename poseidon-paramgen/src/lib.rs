@@ -34,7 +34,6 @@ pub mod poseidon_build;
 
 use ark_ff::PrimeField;
 use poseidon_parameters::PoseidonParameters;
-use round_constants::{ArcMatrixWrapper, OptimizedArcMatrixWrapper};
 use utils::log2;
 
 /// Generate a Poseidon instance mapped over Fp given a choice of:
@@ -53,9 +52,9 @@ pub fn generate<F: PrimeField>(
     let alpha = alpha::generate::<F>(p, allow_inverse);
     let rounds = rounds::generate(&input, &alpha);
     let mds = mds::generate(&input);
-    let arc = ArcMatrixWrapper::generate(&input, rounds, alpha);
+    let arc = round_constants::generate(&input, rounds, alpha);
     let optimized_mds = mds::generate_optimized(&mds, t, &rounds);
-    let optimized_arc = OptimizedArcMatrixWrapper::generate(&arc, &mds, &rounds);
+    let optimized_arc = round_constants::generate_optimized(&arc, &mds, &rounds);
 
     PoseidonParameters::<F> {
         M: input.M,
