@@ -68,9 +68,19 @@ impl RoundNumbers {
         self.r_F
     }
 
+    /// Number of full rounds as mutable reference.
+    pub fn full_mut(&mut self) -> &mut usize {
+        &mut self.r_F
+    }
+
     /// Number of partial rounds.    
     pub fn partial(&self) -> usize {
         self.r_P
+    }
+
+    /// Number of full rounds as mutable reference.
+    pub fn partial_mut(&mut self) -> &mut usize {
+        &mut self.r_P
     }
 
     /// Number of total rounds.

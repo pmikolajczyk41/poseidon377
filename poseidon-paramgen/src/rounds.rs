@@ -37,7 +37,7 @@ impl RoundNumbersBuilder {
     /// Check if this `RoundNumbers` choice is secure given all known attacks.
     fn is_secure<T: BigInteger>(&self, input: &InputParameters<T>, alpha: &Alpha) -> bool {
         // Check if the number of full rounds are sufficient.
-        if self.0.r_F < statistical_attack_full_rounds(input, alpha) {
+        if self.0.full() < statistical_attack_full_rounds(input, alpha) {
             return false;
         }
 
@@ -55,12 +55,14 @@ impl RoundNumbersBuilder {
             // For inverse alpha, the interpolation and Grobner bounds are on r_F scaled
             // by the binary log of `t` plus r_P. See Eqn 4.
             Alpha::Inverse => {
-                if (self.0.r_F as f64 * (input.t as f64).log2()).floor() as usize + self.0.r_P
+                if (self.0.full() as f64 * (input.t as f64).log2()).floor() as usize
+                    + self.0.partial()
                     <= algebraic_attack_interpolation(input, alpha)
                 {
                     return false;
                 }
-                if (self.0.r_F as f64 * (input.t as f64).log2()).floor() as usize + self.0.r_P
+                if (self.0.full() as f64 * (input.t as f64).log2()).floor() as usize
+                    + self.0.partial()
                     <= algebraic_attack_grobner_basis(input, alpha)
                 {
                     return false;
@@ -73,14 +75,14 @@ impl RoundNumbersBuilder {
 
     /// Get the number of SBoxes for these `RoundNumbers` on a permutation of width `t`.
     pub(crate) fn sbox_count(&self, t: usize) -> usize {
-        t * self.0.r_F + self.0.r_P
+        t * self.0.full() + self.0.partial()
     }
 
     /// Add suggested security margin of +2 R_F and +7.5% R_P.
     /// Ref: Section 5.4.
     fn apply_security_margin(&mut self) {
-        self.0.r_F += 2;
-        self.0.r_P = (1.075 * (self.0.r_P as f64)).ceil() as usize;
+        *self.0.full_mut() += 2;
+        *self.0.partial_mut() = (1.075 * (self.0.partial() as f64)).ceil() as usize;
     }
 }
 

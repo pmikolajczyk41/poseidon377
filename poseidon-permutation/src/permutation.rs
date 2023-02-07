@@ -54,7 +54,7 @@ impl<'a, F: PrimeField> Instance<'a, F> {
     /// This implementation is based on the optimized Sage implementation
     /// `poseidonperm_x3_64_optimized.sage` provided in Appendix B of the Poseidon paper.
     fn permute(&mut self) {
-        let R_f = self.parameters.rounds.r_F / 2;
+        let R_f = self.parameters.rounds.full() / 2;
 
         // First chunk of full rounds
         for r in 0..R_f {
@@ -79,7 +79,7 @@ impl<'a, F: PrimeField> Instance<'a, F> {
         // First full matrix multiplication.
         self.mix_layer_mi();
 
-        for r in 0..self.parameters.rounds.r_P - 1 {
+        for r in 0..self.parameters.rounds.partial() - 1 {
             self.partial_sub_words();
             // Rest of `AddRoundConstants` layer, moved to after the S-box layer
             round_constants_counter += 1;
@@ -88,7 +88,7 @@ impl<'a, F: PrimeField> Instance<'a, F> {
                 .optimized_arc
                 .0
                 .get_element(round_constants_counter, 0);
-            self.sparse_mat_mul(self.parameters.rounds.r_P - r - 1);
+            self.sparse_mat_mul(self.parameters.rounds.partial() - r - 1);
         }
 
         // Last partial round

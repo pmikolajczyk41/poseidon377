@@ -82,8 +82,8 @@ mod tests {
             };
             let input = input::generate(table_row.M, table_row.t, table_row.p, true);
             let rounds = rounds::generate(&input, &alpha);
-            assert_eq!(rounds.r_F, table_row.r_F);
-            assert_eq!(rounds.r_P, table_row.r_P);
+            assert_eq!(rounds.full(), table_row.r_F);
+            assert_eq!(rounds.partial(), table_row.r_P);
         }
     }
 
@@ -134,8 +134,8 @@ mod tests {
 
             let input = input::generate(table_row.M, table_row.t, table_row.p, true);
             let rounds = rounds::generate(&input, &alpha);
-            assert_eq!(rounds.r_F, table_row.r_F);
-            assert_eq!(rounds.r_P, table_row.r_P);
+            assert_eq!(rounds.full(), table_row.r_F);
+            assert_eq!(rounds.partial(), table_row.r_P);
         }
     }
 
@@ -185,8 +185,8 @@ mod tests {
             };
             let input = input::generate(table_row.M, table_row.t, table_row.p, true);
             let rounds = rounds::generate(&input, &alpha);
-            assert_eq!(rounds.full(), table_row.r_F);
-            assert_eq!(rounds.partial(), table_row.r_P);
+            assert_eq!(rounds.full(), table_row.full());
+            assert_eq!(rounds.partial(), table_row.partial());
         }
     }
 
