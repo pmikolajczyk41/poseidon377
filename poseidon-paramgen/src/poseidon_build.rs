@@ -90,7 +90,7 @@ impl<F: PrimeField> Display for DisplayableMatrix<'_, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let n_rows = self.0.n_rows();
         let n_cols = self.0.n_cols();
-        let elements = serialize_vec_f(&self.0.elements().to_vec());
+        let elements = serialize_slice_f(&self.0.elements().to_vec());
         write!(f, r"Matrix::new({n_rows}, {n_cols}, {elements})",)
     }
 }
@@ -100,12 +100,12 @@ impl<F: PrimeField> Display for DisplayableSquareMatrix<'_, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let n_rows = self.0.n_rows();
         let n_cols = self.0.n_cols();
-        let elements = serialize_vec_f(&self.0.elements().to_vec());
+        let elements = serialize_slice_f(&self.0.elements().to_vec());
         write!(f, r"SquareMatrix::new({n_rows}, {n_cols}, {elements})",)
     }
 }
 
-fn serialize_vec_matrix_f<F: PrimeField>(elements: &[Matrix<F>]) -> String {
+fn serialize_slice_matrix_f<F: PrimeField>(elements: &[Matrix<F>]) -> String {
     let mut new_str = "vec![".to_string();
     for elem in elements {
         new_str.push_str(&format!("{}, ", DisplayableMatrix(elem)).to_string());
@@ -117,7 +117,7 @@ fn serialize_vec_matrix_f<F: PrimeField>(elements: &[Matrix<F>]) -> String {
     new_str
 }
 
-fn serialize_vec_f<F: PrimeField>(elements: &[F]) -> String {
+fn serialize_slice_f<F: PrimeField>(elements: &[F]) -> String {
     let mut new_str = "vec![".to_string();
     for elem in elements {
         // We use the BigUint type here since the Display of the field element
@@ -134,7 +134,7 @@ fn serialize_vec_f<F: PrimeField>(elements: &[F]) -> String {
     new_str
 }
 
-fn serialize_vec_of_vecs_f<F: PrimeField>(elements: &[Vec<F>]) -> String {
+fn serialize_slice_of_vecs_f<F: PrimeField>(elements: &[Vec<F>]) -> String {
     let mut new_str = "vec![".to_string();
     for r in elements {
         for c in r {
@@ -199,8 +199,8 @@ impl<F: PrimeField> Display for DisplayableOptimizedMdsMatrices<'_, F> {
             DisplayableSquareMatrix(M_hat_inverse),
             serialize_f(&this.M_00),
             DisplayableMatrix(M_i),
-            serialize_vec_matrix_f(v_collection),
-            serialize_vec_matrix_f(w_hat_collection),
+            serialize_slice_matrix_f(v_collection),
+            serialize_slice_matrix_f(w_hat_collection),
         )
     }
 }
@@ -211,7 +211,7 @@ impl<F: PrimeField> Display for DisplayableMdsMatrix<'_, F> {
         let mds_elements: Vec<F> = self.0.elements().to_vec();
 
         let mut mds_str = "MdsMatrix::from_elements(".to_string();
-        mds_str.push_str(&serialize_vec_f(&mds_elements));
+        mds_str.push_str(&serialize_slice_f(&mds_elements));
         mds_str.push(')');
         write!(f, "{}", &mds_str[..])
     }
@@ -231,7 +231,7 @@ impl<F: PrimeField> Display for DisplayableArcMatrix<'_, F> {
         arc_str.push_str(", ");
         arc_str.push_str(&n_cols.to_string());
         arc_str.push_str(r", ");
-        arc_str.push_str(&serialize_vec_of_vecs_f(&elements));
+        arc_str.push_str(&serialize_slice_of_vecs_f(&elements));
         arc_str.push(')');
         write!(f, "{}", &arc_str[..])
     }
@@ -263,7 +263,7 @@ impl<F: PrimeField> Display for DisplayableOptimizedArcMatrix<'_, F> {
         arc_str.push_str(", ");
         arc_str.push_str(&n_cols.to_string());
         arc_str.push_str(r", ");
-        arc_str.push_str(&serialize_vec_of_vecs_f(&elements));
+        arc_str.push_str(&serialize_slice_of_vecs_f(&elements));
         arc_str.push(')');
         write!(f, "{}", &arc_str[..])
     }
