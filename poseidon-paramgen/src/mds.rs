@@ -124,7 +124,6 @@ pub fn calc_equivalent_matrices<F: PrimeField>(
     mds: &MdsMatrix<F>,
     rounds: &RoundNumbers,
 ) -> (Matrix<F>, Vec<Matrix<F>>, Vec<Matrix<F>>) {
-    // let rounds: RoundNumbers<poseidon_parameters::RoundNumbers> = RoundNumbersWrapper(*rounds);
     let r_P = rounds.partial();
     let mut w_hat_collection = Vec::with_capacity(rounds.partial());
     let mut v_collection = Vec::with_capacity(rounds.partial());
